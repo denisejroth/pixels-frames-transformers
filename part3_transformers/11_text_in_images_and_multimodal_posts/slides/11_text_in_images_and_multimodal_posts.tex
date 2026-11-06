@@ -1,0 +1,206 @@
+\newcommand{\coursemodule}{Module 11}
+\input{../../../shared/preamble.tex}
+
+\begin{document}
+
+\moduletitle{Text in Images and Multimodal Posts}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Meaning in the Combination}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+Much of what we study is neither pure text nor pure image:
+
+\begin{itemize}
+\item a \textbf{meme}, where the caption and the picture comment on each other
+\item a \textbf{cereal box}, with health claims in print next to a cartoon mascot
+\item a \textbf{post}, where a few words change how a photo reads
+\end{itemize}
+\end{column}
+\begin{column}{0.46\textwidth}
+\begin{greenbox}
+\textbf{Two questions for this module}\\[2pt]
+1. How well can we get the text \emph{out} of an image?\\[2pt]
+2. What does each modality contribute to the meaning, and does a model use both?
+\end{greenbox}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Getting the Text Out: OCR or a VLM?}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{graybox}[height=3.9cm]
+\textbf{Classic OCR (Tesseract)}\\[2pt]
+finds lines of text and recognizes them letter by letter\\[3pt]
+\textcolor{darkgreen}{+} fast, and only reports what it reads\\
+\textcolor{warnborder}{$-$} struggles with logos, curved text, low contrast, small print
+\end{graybox}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{navybox}[height=3.9cm]
+\textbf{A vision-language model}\\[2pt]
+sees the whole image and \emph{writes} the text it believes is there\\[3pt]
++ reads stylized brand names and odd layouts\\
+$-$ slow, and it can ``complete'' text that isn't printed
+\end{navybox}
+\end{column}
+\end{columns}
+
+\vspace{0.2cm}
+\textbf{A yardstick without hand-coding}: the product name in the Open Food Facts database is almost
+always printed on the front, so we measure the share of its words each reader finds.
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{When the Reader Writes}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+Words that only the VLM reports are a mix of
+\begin{itemize}
+\item text that Tesseract missed (logos, curved slogans), and
+\item text the model \textbf{supplied}: a familiar slogan of the brand, a typical claim (``rich in
+      fiber''), the full name when only part is visible
+\end{itemize}
+\end{column}
+\begin{column}{0.46\textwidth}
+\begin{warnbox}
+You can only tell them apart by looking. Check a sample by eye before you analyze VLM
+transcriptions, and report how often invented text occurs.
+\end{warnbox}
+\muted{\footnotesize Name recall can't catch invented text: it only asks whether the expected words
+are there.}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Health Claims: Two Imperfect Benchmarks}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+The VLM codes four claims on the front of each box: whole grain, fiber, less sugar, organic.
+Open Food Facts records many claims as \keyterm{labels}, entered by contributors.
+
+\vspace{0.2cm}
+\textbf{VLM yes, database no}: often a real claim never entered as a label, sometimes a claim
+invented for a box that just \emph{looks} healthy.
+\end{column}
+\begin{column}{0.46\textwidth}
+\textbf{Database yes, VLM no}: often a claim printed on the side or back, which a front photo
+doesn't show, or a small logo missed at low resolution.
+
+\vspace{0.2cm}
+\begin{graybox}
+Neither source is ground truth for ``what the front of the box claims''. For a study of that
+construct, hand-code a sample of it.
+\end{graybox}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{A Controlled Meme Experiment}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\centering
+\begin{tikzpicture}
+\foreach \x/\cap/\col in {0/SUPPORTIVE CAPTION/darkgreen, 3.1/MOCKING CAPTION/warnborder} {
+  \fill[lightgray] (\x, 0) rectangle ++(2.8, 2.2);
+  \node[font=\scriptsize, color=midgray] at (\x + 1.4, 1.0) {the same photo};
+  \node[font=\tiny\bfseries, color=\col] at (\x + 1.4, 1.95) {\cap};
+}
+\end{tikzpicture}\\[3pt]
+\muted{\footnotesize six protest photos $\times$ two captions = 12 memes}
+\end{column}
+\begin{column}{0.46\textwidth}
+Within each pair the photo is identical, so \textbf{only the caption} can tell the two versions
+apart. That makes it possible to see what a model actually uses.
+
+\vspace{0.15cm}
+\muted{\footnotesize Adding a caption adapts a Commons photo. CC BY and CC BY-SA allow that; if you
+share the result, credit the author and keep the share-alike license.}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Four Ways to Read a Meme}
+\vspace{0.1cm}
+\centering
+{\small
+\begin{tabular}{@{}llp{6.2cm}@{}}
+\toprule
+& what the model sees & what to expect \\
+\midrule
+1 & the caption text only & does well: the stance is in the words \\
+2 & the photo only & exactly 50\% by design: both versions share the photo \\
+3 & CLIP on the meme & as good as CLIP's ability to read the caption \\
+4 & the VLM on the meme & as good as the VLM's reading and reasoning \\
+\bottomrule
+\end{tabular}}
+
+\vspace{0.35cm}
+\raggedright
+\textbf{Then turn it around}: one cheerful caption (``What a lovely day in the city'') on King's Day
+photos, where it is sincere, and on protest photos, where it reads as sarcastic. Does the model use
+the picture to read the caption? Small models often don't.
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{What Does Each Modality Add?}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+An \keyterm{ablation}: the same classifier on
+\begin{itemize}
+\item text only (OCR of the package)
+\item image only (CLIP embedding)
+\item both
+\end{itemize}
+Outcome: favorable Nutri-Score (A, B) versus unfavorable (D, E). With about a hundred products, use
+cross-validation, not one split.
+\end{column}
+\begin{column}{0.46\textwidth}
+\begin{warnbox}
+\textbf{Report the spread.} Across five random fold splits, scores typically move by a few points,
+so small differences between versions mean little.
+\end{warnbox}
+\begin{graybox}
+``Both'' doesn't always win: more features give a small sample more ways to overfit.
+\end{graybox}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Designs for Multimodal Posts}
+\begin{enumerate}
+\setlength{\itemsep}{4pt}
+\item \textbf{Code the combined meaning}, and separately the text alone and the image alone; the
+      difference is what the image adds
+\item \textbf{Ablate} with the same model: text only, image only, both
+\item \textbf{Swap} captions between images to see which modality a model relies on
+\item \textbf{Measure text extraction} before treating text in images as data
+\item \textbf{Check access conditions}: many meme and post datasets come with their own license
+      (Hateful Memes, Kiela et al., 2020, uses Meta's), and platforms have terms for collecting new
+      posts
+\end{enumerate}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\notebookslide{
+\begin{itemize}
+\setlength{\itemsep}{5pt}
+\nbitem{\faFont}{Reading packaging with Tesseract and with Qwen3-VL, scored by product-name recall}
+\nbitem{\faCheckSquare}{Health claims coded by the VLM versus database labels}
+\nbitem{\faImage}{A controlled meme experiment: caption, photo, CLIP, VLM}
+\nbitem{\faTheaterMasks}{Same caption, different photo: sincere or sarcastic?}
+\nbitem{\faLayerGroup}{Text only, image only, both: an ablation with cross-validation}
+\end{itemize}
+
+\vspace{0.35cm}
+\muted{\footnotesize part3\_transformers/11\_text\_in\_images\_and\_multimodal\_posts/notebooks/\\
+11\_text\_in\_images\_and\_multimodal\_posts\_exercises.ipynb · 5 exercises · GPU needed}
+}
+
+\end{document}

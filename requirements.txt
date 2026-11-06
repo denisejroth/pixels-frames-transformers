@@ -1,0 +1,40 @@
+# Pixels, Frames & Transformers: Python dependencies
+# The notebooks are written for Google Colab, where most of these are preinstalled.
+# For a local setup, use Python 3.10+ and install with:
+#     pip install -r requirements.txt
+# The video modules (Part 4) also need FFmpeg on your system: https://ffmpeg.org/
+#
+# This list is a starting point and will be pinned once the notebooks are written.
+# Some modules install a few extra packages in their first cells.
+
+# Core
+numpy
+pandas
+matplotlib
+scikit-learn
+pillow
+requests
+
+# Images (Part 1)
+opencv-python-headless
+scikit-image
+imagehash
+pytesseract
+
+# Deep learning, embeddings and transformers (Parts 2 and 3)
+torch
+torchvision
+transformers
+accelerate
+datasets
+umap-learn
+hdbscan
+
+# Video and audio (Part 4)
+av
+scenedetect
+librosa
+openai-whisper
+
+# Fine-tuning (Part 5)
+peft

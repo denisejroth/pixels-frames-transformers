@@ -1,0 +1,253 @@
+\newcommand{\coursemodule}{Module 06}
+\input{../../../shared/preamble.tex}
+
+\begin{document}
+
+\moduletitle{Transfer Learning and Image Embeddings}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Don't Start from Scratch}
+A network trained on millions of images has already learned edges, textures, parts and objects.
+\keyterm{Transfer learning} reuses that knowledge, just as BERT is reused for text.
+
+\vspace{0.25cm}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{greenbox}
+\textbf{1. Off the shelf}\\
+Use the model's own labels: an ImageNet model names 1,000 categories, from \emph{tabby cat} to
+\emph{space shuttle}.
+\end{greenbox}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{greenbox}
+\textbf{2. As an embedding machine}\\
+Remove the last layer, and the model turns every image into a vector. Train your own classifier
+on top, with your categories.
+\end{greenbox}
+\end{column}
+\end{columns}
+
+\vspace{0.2cm}
+\begin{graybox}
+\textbf{ImageNet}: about 1.3 million training photos in 1,000 categories, the benchmark behind a
+decade of computer vision. Its categories were chosen by computer scientists: 120 of them are dog
+breeds, and none is \emph{protest}, \emph{politician} or \emph{crowd}.
+\end{graybox}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Cut Off the Last Layer: Image Embeddings}
+\vspace{0.2cm}
+\centering
+\begin{tikzpicture}[
+  img/.style={draw=midgray, fill=lightgray, rounded corners=3pt, font=\footnotesize, align=center,
+              inner sep=5pt, text width=1.4cm, minimum height=1.2cm},
+  net/.style={draw=wurgreen, fill=lightgreen, rounded corners=3pt, font=\footnotesize, align=center,
+              inner sep=5pt, text width=2.9cm, minimum height=1.2cm},
+  emb/.style={draw=darknavy, fill=darknavy, text=white, rounded corners=3pt, font=\footnotesize\bfseries,
+              align=center, inner sep=5pt, text width=2.2cm, minimum height=1.2cm},
+  cut/.style={draw=warnborder, fill=warnred, rounded corners=3pt, font=\footnotesize, align=center,
+              inner sep=5pt, text width=3.0cm, minimum height=1.2cm, dashed},
+  arr/.style={-{Stealth[length=2mm]}, thick, color=midgray}]
+\node[img] (i) {an image};
+\node[net, right=0.5cm of i] (n) {pre-trained layers\\ \muted{frozen}};
+\node[emb, right=0.5cm of n] (e) {embedding\\ \normalfont 2,048 numbers};
+\node[cut, right=0.5cm of e] (c) {1,000 ImageNet\\ scores: \textbf{removed}};
+\draw[arr] (i) -- (n); \draw[arr] (n) -- (e); \draw[arr, dashed] (e) -- (c);
+\end{tikzpicture}
+
+\vspace{0.35cm}
+\raggedright
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{graybox}
+\textbf{ResNet-50}: a CNN trained \emph{with labels} on ImageNet. 2,048 numbers per image.
+\end{graybox}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{greenbox}
+\textbf{DINOv2} \muted{(Oquab et al., 2024)}: a vision transformer trained \emph{without labels}
+on 142 million images. 384 numbers per image (small version).
+\end{greenbox}
+\end{column}
+\end{columns}
+\muted{Images that look alike, to the model, get vectors that point in similar directions. With
+vectors of length 1, their dot product is the \textbf{cosine similarity}.}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Three Ways to Use a Pre-trained Model}
+\vspace{0.1cm}
+{\footnotesize
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{3.0cm}>{\raggedright\arraybackslash}p{3.5cm}>{\raggedright\arraybackslash}p{3.0cm}>{\raggedright\arraybackslash}p{3.0cm}@{}}
+\toprule
+& \textbf{What is trained} & \textbf{Cost} & \textbf{With few labels} \\
+\midrule
+\textbf{Linear probe} & a logistic regression on the frozen embeddings & seconds, no GPU once embedded & the safe default \\[3pt]
+\textbf{Fine-tune the last block} & the last block plus a new output layer & minutes on a GPU; more settings & sometimes better, often not \\[3pt]
+\textbf{Fine-tune everything} & every weight, at a low learning rate & the most compute and care & overfits easily \\
+\bottomrule
+\end{tabular}}
+
+\vspace{0.35cm}
+\begin{greenbox}
+\textbf{Start with a linear probe on good embeddings.} It is the image version of a classifier on
+sentence embeddings, and usually far better than a CNN trained from scratch on the same few hundred
+labels. Fine-tune only when you have more labels and the probe has clearly hit a ceiling.
+\end{greenbox}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Choose Settings Without Touching the Test Set}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\centering
+\begin{tikzpicture}[
+  tr/.style={draw=wurgreen, fill=lightgreen, rounded corners=3pt, font=\footnotesize, align=center,
+             inner sep=5pt, text width=5.2cm},
+  te/.style={draw=darknavy, fill=darknavy, text=white, rounded corners=3pt, font=\footnotesize,
+             align=center, inner sep=5pt, text width=5.2cm},
+  arr/.style={-{Stealth[length=2mm]}, thick, color=midgray}]
+\node[tr] (a) {\textbf{training images}\\ try $C$ = 0.01, 0.1, 1, 10, 100\\ with 5-fold cross-validation};
+\node[tr, below=0.35cm of a] (b) {refit with the best setting};
+\node[te, below=0.35cm of b] (c) {\textbf{your 40 coded images}\\ one final score};
+\draw[arr] (a) -- (b); \draw[arr] (b) -- (c);
+\end{tikzpicture}
+\end{column}
+\begin{column}{0.47\textwidth}
+Picking a setting by its score on the test set turns the test set into training data: you pick
+whatever happened to fit those 40 images, and the reported score is too optimistic.
+
+\vspace{0.2cm}
+\begin{graybox}
+\raggedright\textbf{\faTrophy\ Your scoreboard} (\texttt{my\_results.csv}) collects every method scored on the
+same 40 images: handcrafted features, a CNN from scratch, linear probes, fine-tuning, and later
+CLIP and vision-language models.
+\end{graybox}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{How Many Labels Do You Need?}
+\begin{columns}[T]
+\begin{column}{0.46\textwidth}
+\centering
+\begin{tikzpicture}[x=1.0cm, y=4.2cm]
+\draw[-{Stealth[length=1.6mm]}, midgray] (0,0.5) -- (5.3,0.5);
+\node[font=\scriptsize, color=bodytext] at (2.6,0.39) {labeled images (log scale)};
+\draw[-{Stealth[length=1.6mm]}, midgray] (0,0.5) -- (0,1.03) node[above, font=\scriptsize] {balanced accuracy};
+\foreach \x/\l in {0.5/10, 1.5/20, 2.5/40, 3.5/80, 4.5/160} \node[below, font=\tiny, color=midgray] at (\x,0.5) {\l};
+\fill[wurgreen, opacity=0.18] plot[smooth] coordinates {(0.5,0.52) (1.5,0.6) (2.5,0.72) (3.5,0.8) (4.5,0.84)}
+  -- plot[smooth] coordinates {(4.5,0.9) (3.5,0.89) (2.5,0.86) (1.5,0.8) (0.5,0.72)} -- cycle;
+\draw[very thick, wurgreen] plot[smooth] coordinates {(0.5,0.62) (1.5,0.7) (2.5,0.79) (3.5,0.845) (4.5,0.87)};
+\draw[dotted, midgray] (0,0.5) -- (5,0.5);
+\end{tikzpicture}\\
+\muted{\footnotesize schematic: mean and range over repeated random draws}
+\end{column}
+\begin{column}{0.51\textwidth}
+A \keyterm{learning curve}: train on random subsets of increasing size, several times per size,
+and score each on your codes.
+
+\begin{itemize}
+\item Good embeddings often get close to their plateau with a few dozen labels
+\item The band is wide at the small end: with 20 labels, \emph{which} 20 you labeled matters a lot
+\item With 40 test images, every curve is noisy too
+\end{itemize}
+\muted{Use learning curves to decide whether more coding is worth it.}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Search by Example, Find Near Duplicates}
+\begin{columns}[T]
+\begin{column}{0.42\textwidth}
+\textbf{Search by example}\\
+Compute the cosine similarity between one image and all others, and look at the closest ones.
+No labels needed: a quick way to find more examples of a rare kind of image for coding.
+
+\vspace{0.2cm}
+\textbf{Near duplicates}\\
+Pairs with very high similarity. Embeddings are trained to recognize the same scene under
+different crops, so they catch copies that perceptual hashes (module 02) miss.
+\end{column}
+\begin{column}{0.55\textwidth}
+{\footnotesize
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{3.3cm}cc@{}}
+\toprule
+copy & \shortstack{perceptual\\hash} & embedding \\
+\midrule
+resized, recompressed & \textcolor{wurgreen}{\faCheck} & \textcolor{wurgreen}{\faCheck} \\
+brightened & \textcolor{wurgreen}{\faCheck} & \textcolor{wurgreen}{\faCheck} \\
+cropped & \textcolor{midgray}{only lightly} & \textcolor{wurgreen}{\faCheck} \\
+mirrored & \textcolor{warnborder}{\faTimes} & \textcolor{wurgreen}{\faCheck} \\
+another photo, same moment & \textcolor{warnborder}{\faTimes} & \textcolor{midgray}{close} \\
+\bottomrule
+\end{tabular}}
+
+\vspace{0.2cm}
+\begin{warnbox}
+Choose a threshold by \textbf{looking at pairs around it}, and decide what counts as a duplicate
+for your question.
+\end{warnbox}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Visual Themes: Embed, Reduce, Cluster, Look}
+\vspace{0.1cm}
+\centering
+\begin{tikzpicture}[
+  s/.style={draw=wurgreen, fill=lightgreen, rounded corners=3pt, font=\footnotesize, align=center,
+            inner sep=3pt, text width=2.05cm, minimum height=1.25cm},
+  h/.style={draw=darknavy, fill=darknavy, text=white, rounded corners=3pt, font=\footnotesize,
+            align=center, inner sep=3pt, text width=2.05cm, minimum height=1.25cm},
+  arr/.style={-{Stealth[length=2mm]}, thick, color=midgray}]
+\node[s] (a) {\textbf{embed}\\ DINOv2, 384 numbers};
+\node[s, right=0.38cm of a] (b) {\textbf{reduce}\\ UMAP to 5 dimensions};
+\node[s, right=0.38cm of b] (c) {\textbf{cluster}\\ HDBSCAN; outliers stay out};
+\node[h, right=0.38cm of c] (d) {\textbf{look}\\ the images closest to each center};
+\node[h, right=0.38cm of d] (e) {\textbf{name}\\ the themes yourself};
+\draw[arr] (a) -- (b); \draw[arr] (b) -- (c); \draw[arr] (c) -- (d); \draw[arr] (d) -- (e);
+\end{tikzpicture}
+
+\vspace{0.3cm}
+\raggedright
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{graybox}
+\textbf{Results depend on settings}, as with topic models. Rerun with other cluster sizes and
+seeds; compare runs with the \keyterm{adjusted Rand index}. Trust the themes that survive.
+\end{graybox}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{warnbox}
+\textbf{A cluster is not a frame.} Clusters group what looks alike to the model: product type,
+brand, background. Frames come from theory \muted{(Torres, 2024)}. Use clusters to discover, a
+codebook to measure.
+\end{warnbox}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\notebookslide{
+\begin{itemize}
+\setlength{\itemsep}{5pt}
+\nbitem{\faTags}{ImageNet labels off the shelf, for protest photos and packaging}
+\nbitem{\faCubes}{Embeddings from ResNet-50 and DINOv2}
+\nbitem{\faTrophy}{Linear probes, a tuned probe and a fine-tuned ResNet-50, on your scoreboard}
+\nbitem{\faChartLine}{A learning curve: how many labels do you need?}
+\nbitem{\faSearch}{Search by example and near duplicates}
+\nbitem{\faShapes}{Visual themes in cereal packaging, and how stable they are}
+\end{itemize}
+
+\vspace{0.35cm}
+\muted{\footnotesize part2\_vectors/06\_transfer\_learning\_and\_embeddings/notebooks/\\
+06\_transfer\_learning\_and\_embeddings\_exercises.ipynb · 6 exercises · GPU recommended}
+}
+
+\end{document}

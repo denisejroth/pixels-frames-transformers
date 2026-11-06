@@ -1,0 +1,258 @@
+\newcommand{\coursemodule}{Module 10}
+\input{../../../shared/preamble.tex}
+
+\begin{document}
+
+\moduletitle{Vision-Language Models as Annotators}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{A Research Assistant That Can See}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+A \keyterm{vision-language model} (VLM) is a language model that can look at images. You can:
+
+\begin{itemize}
+\item ask what a picture shows
+\item have it fill in a coding sheet
+\item have it describe a scene for a text pipeline
+\end{itemize}
+
+\vspace{0.15cm}
+Small open VLMs now run on a free Colab GPU.
+\end{column}
+\begin{column}{0.46\textwidth}
+\begin{greenbox}
+\textbf{Treat it like a new research assistant}\\
+Give it your codebook, check its work against yours, study its mistakes, and trust it only where
+it has earned that trust.
+\end{greenbox}
+\muted{\footnotesize The same workflow as Day 4 of Bags, Vectors \& Transformers: prompt,
+validate, distill.}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{How a VLM Is Built}
+\vspace{0.1cm}
+\centering
+\begin{tikzpicture}[
+  b/.style={draw=midgray, fill=lightgray, rounded corners=3pt, font=\footnotesize, align=center, inner sep=5pt},
+  g/.style={draw=wurgreen, fill=lightgreen, rounded corners=3pt, font=\footnotesize, align=center, inner sep=5pt},
+  n/.style={draw=darknavy, fill=darknavy, text=white, rounded corners=3pt, font=\footnotesize, align=center, inner sep=5pt},
+  arr/.style={-{Stealth[length=2mm]}, thick, color=midgray}]
+\node[b, text width=1.6cm] (img) at (0, 0.9) {image};
+\node[g, text width=2.5cm] (enc) at (2.75, 0.9) {vision encoder\\ \muted{a ViT, module 08}};
+\node[g, text width=2.5cm] (con) at (5.75, 0.9) {connector\\ \muted{into the LM's space}};
+\node[b, text width=2.5cm] (txt) at (5.75, -0.7) {your prompt};
+\node[n, text width=2.7cm] (lm) at (8.85, 0.1) {language model\\ reads image tokens\\ and the prompt};
+\node[b, text width=1.9cm] (ans) at (11.6, 0.1) {answer,\\ token by token};
+\draw[arr] (img) -- (enc);
+\draw[arr] (enc) -- (con);
+\draw[arr] (con.east) -- (lm.north west);
+\draw[arr] (txt.east) -- (lm.south west);
+\draw[arr] (lm) -- (ans);
+\end{tikzpicture}
+
+\vspace{0.35cm}
+\raggedright
+Qwen3-VL merges each 2 $\times$ 2 block of patches into one token, so a 768-pixel image becomes a
+few hundred tokens. The \textbf{language model} is where the knowledge, the instruction following
+and the hallucinations come from.
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Open Models That Fit a Free GPU}
+\begin{columns}[T]
+\begin{column}{0.58\textwidth}
+{\footnotesize
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{2.6cm}>{\raggedright\arraybackslash}p{1.6cm}>{\raggedright\arraybackslash}p{3.0cm}@{}}
+\toprule
+model & license & note \\
+\midrule
+\textbf{Qwen3-VL} 2B/4B & Apache 2.0 & our default, runs on a T4 \\
+Qwen3.5 2B/4B & Apache 2.0 & newer, but needs a GPU with bfloat16 (not a T4) \\
+Molmo2 4B & Apache 2.0 & its training data is open too \\
+\bottomrule
+\end{tabular}}
+
+\vspace{0.2cm}
+\muted{\footnotesize On a T4 (no bfloat16) the notebook runs the 2B model in float32: about 9 GB,
+slower, but float16 can overflow and garble answers.}
+\end{column}
+\begin{column}{0.38\textwidth}
+\begin{graybox}
+\textbf{Why open weights matter}\\
+A versioned open model gives the same answers next year. A commercial API can change the model
+behind it without notice, and you can't inspect what it was trained on.
+\end{graybox}
+\muted{\footnotesize This landscape changes every few months; check before you start a project.}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}[fragile]{Your Codebook as a Prompt}
+\begin{columns}[T]
+\begin{column}{0.52\textwidth}
+\begin{codebox}
+{\scriptsize\ttfamily
+You are coding photos for a study of protest.\\
+Code only what is visible in the photo.\\[3pt]
+- protest: people engaged in a protest: \ldots\\
+\hspace*{1em}Code 0 for \ldots a festival, a market \ldots\\
+- crowd: roughly ten or more people \ldots\\
+- police: \ldots Security guards don't count.\\
+- signs: \ldots Street names don't count.\\[3pt]
+Answer with JSON only, in exactly this format:\\
+\{"protest": 0, "crowd": 0, "police": 0, "signs": 0\}}
+\end{codebox}
+\end{column}
+\begin{column}{0.44\textwidth}
+\begin{itemize}
+\item Definitions \emph{and} rules for hard cases, as in module 04
+\item \keyterm{JSON} output: easy to read into a table, and obvious when the format breaks
+\item \keyterm{Greedy decoding}: same image, same prompt, same answer
+\item Keep every raw answer, and count the ones that failed
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Validate It Like a Human Coder}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+Per variable, against your codes:
+\begin{itemize}
+\item agreement and \keyterm{kappa} (rare variables can have high agreement and low kappa)
+\item the \textbf{share coded yes}, by you and by the model: a model that says yes too often
+      biases every prevalence you estimate
+\item errors per group or context, if you compare groups (module 07)
+\end{itemize}
+\end{column}
+\begin{column}{0.46\textwidth}
+\begin{greenbox}
+\textbf{Look at the disagreements}\\
+Some are model errors, some are cases the codebook doesn't settle, and some are your own slips.
+Human codes are the benchmark, not the truth.
+\end{greenbox}
+\begin{warnbox}
+Answers that failed are often the hard images. Never drop them silently.
+\end{warnbox}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Hallucination}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+A language model writes the most plausible continuation, and a plausible description of a protest
+includes police and signs, whether or not the photo shows them \muted{(Rohrbach et al., 2018)}.
+
+\vspace{0.2cm}
+\textbf{A quick test}: on images you coded \emph{without} police, compare
+\begin{itemize}
+\item a neutral question: ``Is there a police officer? Answer yes or no.''
+\item a leading one: ``Describe what the police officers are doing.''
+\end{itemize}
+\end{column}
+\begin{column}{0.46\textwidth}
+\begin{warnbox}
+\textbf{Leading questions invite invention.} Small models often describe officers who aren't
+there, even after answering ``no'' to the neutral question.
+\end{warnbox}
+\begin{greenbox}
+Ask neutral questions with an explicit ``0 = not visible'', and treat open descriptions as claims
+to check.
+\end{greenbox}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Sensitivity Checks}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{graybox}[height=3.4cm]
+\textbf{Prompt wording}\\
+A shorter prompt with the same variables in another order. Report how often the two agree, as you
+would for two human coders.
+\end{graybox}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{graybox}[height=3.4cm]
+\textbf{Image resolution}\\
+768 versus 336 pixels: about a fifth of the image tokens. Details suffer first (police at the edge,
+text on a placard); the overall scene suffers least.
+\end{graybox}
+\end{column}
+\end{columns}
+
+\vspace{0.25cm}
+Also worth checking when relevant: the order of images in a multi-image prompt, the model size,
+and a newer version of the same model.
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Scaling Up: Two Routes}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{greenbox}[height=4.3cm]
+\textbf{Describe, then analyze}\\[2pt]
+The VLM writes two sentences per image; text methods do the rest (here TF-IDF and a logistic
+regression).\\[3pt]
+\textcolor{darkgreen}{+} transparent: you can read what the model mentions\\
+\textcolor{warnborder}{$-$} slow, and whatever isn't put into words is lost
+\end{greenbox}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{navybox}[height=4.3cm]
+\textbf{Distillation}\\[2pt]
+The VLM codes a few hundred images; a linear probe on CLIP embeddings learns from those codes and
+then labels the whole collection in minutes.\\[3pt]
++ fast at any scale\\
+$-$ inherits the VLM's errors and adds its own
+\end{navybox}
+\end{column}
+\end{columns}
+
+\vspace{0.2cm}
+\muted{Either way, the final classifier is validated on human codes like anything else.}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{What to Report}
+\begin{enumerate}
+\setlength{\itemsep}{3pt}
+\item \textbf{The model, exactly}: name, size, weights version, library version, precision,
+      decoding settings
+\item \textbf{The full prompt}, and how and how often answers broke the format
+\item \textbf{Image handling}: resolution, cropping, anything removed
+\item \textbf{Validation} per variable on a random human-coded sample: kappa or F1, and the share
+      coded yes by humans and by the model; per group if you compare groups
+\item \textbf{Sensitivity} to wording and resolution, and whether the findings hold
+\item \textbf{Hallucination checks} for variables the model could invent
+\item \textbf{If you distilled}: the VLM-labeled training set and the final classifier's validation
+\end{enumerate}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\notebookslide{
+\begin{itemize}
+\setlength{\itemsep}{5pt}
+\nbitem{\faComments}{Loading Qwen3-VL-2B and asking it about images}
+\nbitem{\faClipboardList}{The module 04 codebook as a JSON prompt, validated variable by variable}
+\nbitem{\faGhost}{Catching hallucinations with leading questions}
+\nbitem{\faSlidersH}{Sensitivity to prompt wording and image resolution}
+\nbitem{\faAlignLeft}{Describe, then analyze with a text classifier}
+\nbitem{\faCompress}{Distilling VLM labels into a CLIP probe}
+\end{itemize}
+
+\vspace{0.35cm}
+\muted{\footnotesize part3\_transformers/10\_vlms\_as\_annotators/notebooks/\\
+10\_vlms\_as\_annotators\_exercises.ipynb · 6 exercises · GPU needed}
+}
+
+\end{document}

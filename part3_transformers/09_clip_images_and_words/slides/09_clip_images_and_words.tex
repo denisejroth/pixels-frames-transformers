@@ -1,0 +1,243 @@
+\newcommand{\coursemodule}{Module 09}
+\input{../../../shared/preamble.tex}
+
+\begin{document}
+
+\moduletitle{Images and Words: CLIP}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Learning from Captions Instead of Labels}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\textbf{CLIP} \muted{(Radford et al., 2021)} learned from about 400 million images with the text
+that came with them on the web.
+
+\vspace{0.15cm}
+\begin{itemize}
+\item An image encoder (a ViT) and a text encoder
+\item In each batch, every image must pick out its own caption among all captions, and every
+      caption its own image
+\item \keyterm{Contrastive} learning: pull matching pairs together, push the rest apart
+\end{itemize}
+\end{column}
+\begin{column}{0.46\textwidth}
+\centering
+\begin{tikzpicture}[x=0.62cm, y=0.62cm]
+\foreach \i in {0,...,4} {
+  \foreach \j in {0,...,4} {
+    \ifnum\i=\j
+      \fill[wurgreen] (\j, -\i) rectangle ++(0.9, -0.9);
+    \else
+      \fill[lightgray] (\j, -\i) rectangle ++(0.9, -0.9);
+    \fi
+  }
+  \node[left, font=\scriptsize] at (-0.1, -\i - 0.45) {image \the\numexpr\i+1\relax};
+  \node[above, font=\scriptsize, rotate=60, anchor=south west] at (\i + 0.3, 0.1) {caption \the\numexpr\i+1\relax};
+}
+\end{tikzpicture}\\[2pt]
+\muted{\footnotesize the diagonal should score high, everything else low}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{One Space for Images and Sentences}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+Both encoders map into the same space (512 numbers for CLIP ViT-B/32). Normalize every vector to
+length 1, and the dot product of an image and a sentence is their \keyterm{cosine similarity}.
+
+\vspace{0.2cm}
+This lets you:
+\begin{itemize}
+\item classify with words (\keyterm{zero-shot})
+\item search images with a sentence
+\item define a measurement scale with two sentences
+\end{itemize}
+\end{column}
+\begin{column}{0.46\textwidth}
+\begin{warnbox}
+\textbf{Similarities are relative.} Values usually fall between about 0.15 and 0.35, and a few
+hundredths matter. Compare one image with several sentences, or one sentence with several images.
+A similarity of 0.27 does not mean ``27\% protest''.
+\end{warnbox}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Zero-Shot Classification}
+\vspace{0.1cm}
+\centering
+\begin{tikzpicture}[
+  b/.style={draw=midgray, fill=lightgray, rounded corners=3pt, font=\footnotesize, align=center, inner sep=5pt},
+  g/.style={draw=wurgreen, fill=lightgreen, rounded corners=3pt, font=\footnotesize, align=center, inner sep=5pt},
+  arr/.style={-{Stealth[length=2mm]}, thick, color=midgray}]
+\node[b, text width=2.4cm] (img) at (0, 0) {photo\\ $\rightarrow$ image encoder};
+\node[b, text width=5.2cm] (t1) at (5.6, 0.9) {``a photo of a street festival''\\ $\rightarrow$ text encoder};
+\node[b, text width=5.2cm] (t2) at (5.6, -0.9) {``a photo of a political protest''\\ $\rightarrow$ text encoder};
+\node[g, text width=2.6cm] (out) at (11.0, 0) {most similar sentence wins\\ \muted{softmax of 100 $\times$ similarity}};
+\draw[arr] (img.east) -- (t1.west);
+\draw[arr] (img.east) -- (t2.west);
+\draw[arr] (t1.east) -- (out.north west);
+\draw[arr] (t2.east) -- (out.south west);
+\end{tikzpicture}
+
+\vspace{0.4cm}
+\raggedright
+No labeled examples needed: you describe each category in words. Every choice of words is a
+measurement decision, so it needs the same scrutiny as a codebook definition.
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{The Wording Changes the Result}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\begin{itemize}
+\item A few changed words can move accuracy by ten points or more, and the share labeled
+      ``protest'' even more
+\item Negation fails: ``a photo that does not show a protest'' mostly registers \emph{protest}
+\item \keyterm{Prompt ensembles} average several templates (``a photo of \ldots'', ``a news photo
+      of \ldots'') so no single wording dominates
+\end{itemize}
+\end{column}
+\begin{column}{0.46\textwidth}
+\begin{greenbox}
+\textbf{Choose the wording on data you don't score on}\\
+Picking the best prompt on the test set is tuning on the test set. Compare wordings on training
+images (or a separate validation sample), then score once.
+\end{greenbox}
+\begin{graybox}
+\textbf{Report the spread} across reasonable wordings, not just the winner.
+\end{graybox}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Zero-Shot or Labels?}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\textbf{A linear probe on the same embeddings} uses your labeled images. With a few hundred
+labels, it usually beats zero-shot by a clear margin.
+
+\vspace{0.2cm}
+\textbf{Zero-shot is useful when}
+\begin{itemize}
+\item you have no labels yet
+\item you need many categories quickly
+\item you want candidates to hand-code
+\end{itemize}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{graybox}
+\textbf{SigLIP 2} \muted{(Google, 2025, Apache 2.0)}\\
+A newer image-text model. It scores each image-caption pair on its own instead of against the
+whole batch, and it is usually stronger than the original CLIP. Same workflow, different
+\texttt{model\_name}.
+\end{graybox}
+\muted{\footnotesize A prompt chosen for one model is not necessarily best for another.}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Searching a Collection with Words}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+Embed every image once; then any sentence is a query.
+
+\vspace{0.15cm}
+\begin{itemize}
+\item ``packaging with a cartoon character''
+\item ``a chocolate cereal for children''
+\end{itemize}
+
+\vspace{0.15cm}
+\keyterm{Image + words}: add the embedding of a phrase to the embedding of an image (``this box,
+\emph{with a cartoon character}'') to find similar items that differ in one respect.
+\end{column}
+\begin{column}{0.46\textwidth}
+\begin{graybox}
+\textbf{Good for}\\
+getting into a large collection, finding examples and counterexamples for a codebook, and
+building hand-coding samples that are rich in rare cases.
+\end{graybox}
+\begin{warnbox}
+Search results are suggestions to look at, not measurements.
+\end{warnbox}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{A Measurement Scale Defined in Words}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+Score each image by its similarity to one pole minus its similarity to the other:
+
+\vspace{0.1cm}
+{\footnotesize
+\textcolor{darkgreen}{``a wholesome, natural breakfast cereal with whole grains''}\\
+\hspace{1.5cm}versus\\
+\textcolor{warnborder}{``a sweet, sugary breakfast cereal for children, a fun treat''}}
+
+\vspace{0.2cm}
+Like the poles in the embedding playground of Bags, Vectors \& Transformers, but for images.
+\end{column}
+\begin{column}{0.46\textwidth}
+\begin{greenbox}
+\textbf{Validate it}\\
+Against human ratings of the concept you mean. Nutri-Score measures something related but
+different: what is \emph{in} the box, not what the box \emph{suggests}. Mismatches can be the
+finding.
+\end{greenbox}
+\begin{graybox}
+\textbf{Check the wording}: rebuild the scale with other poles and see how much items move.
+\end{graybox}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{What CLIP Learned About People}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+CLIP learned from web captions, with their habits about who does what. Its own authors found that
+some groups in FairFace were more often put into crime-related or non-human categories
+\muted{(Radford et al., 2021, section 7)}.
+
+\vspace{0.2cm}
+\textbf{An audit with a known answer}: every Congress portrait shows a politician. How often does
+CLIP pick ``a politician'' from a list of occupations, for women and for men?
+\end{column}
+\begin{column}{0.46\textwidth}
+\begin{warnbox}
+\textbf{The label set shapes the result}\\
+Add ``a member of Congress'' or remove ``a nurse'' and ``a secretary'', and both the share correct
+and the gap between women and men change.
+\end{warnbox}
+\muted{\footnotesize Report the full label set, and check that conclusions hold across reasonable
+alternatives (compare Schwemmer et al., 2020, in module 07).}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\notebookslide{
+\begin{itemize}
+\setlength{\itemsep}{5pt}
+\nbitem{\faComments}{Images and sentences in one space}
+\nbitem{\faTags}{Zero-shot classification of your 40 coded images, with prompts chosen on training data}
+\nbitem{\faBalanceScale}{Zero-shot versus a linear probe, and SigLIP 2 as an alternative}
+\nbitem{\faSearch}{Searching the packaging with words, and with an image plus words}
+\nbitem{\faRuler}{A ``healthy-looking'' scale, checked against Nutri-Score}
+\nbitem{\faUsers}{An occupation audit on the Congress portraits}
+\end{itemize}
+
+\vspace{0.35cm}
+\muted{\footnotesize part3\_transformers/09\_clip\_images\_and\_words/notebooks/\\
+09\_clip\_images\_and\_words\_exercises.ipynb · 6 exercises · GPU recommended}
+}
+
+\end{document}

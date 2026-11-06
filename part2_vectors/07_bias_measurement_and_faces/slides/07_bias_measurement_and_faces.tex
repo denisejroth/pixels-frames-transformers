@@ -1,0 +1,246 @@
+\newcommand{\coursemodule}{Module 07}
+\input{../../../shared/preamble.tex}
+
+\begin{document}
+
+\moduletitle{Bias, Measurement and Faces}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Errors That Aren't Random}
+\begin{columns}[T]
+\begin{column}{0.52\textwidth}
+\textbf{Gender Shades} \muted{(Buolamwini \& Gebru, 2018)} audited commercial gender
+classifiers on a set of faces balanced by skin type and gender.
+
+\begin{itemize}
+\item Two benchmarks widely used for face analysis were about 80\% and 86\% lighter-skinned
+\item The classifiers' error rates ranged from under 1\% for lighter-skinned men to as much as
+      35\% for darker-skinned women
+\end{itemize}
+\end{column}
+\begin{column}{0.45\textwidth}
+\begin{warnbox}
+\textbf{The lesson for any vision model:} a classifier that is accurate on average can be much
+worse for some groups, usually the ones that were rare in its training data.
+\end{warnbox}
+\begin{graybox}
+\textbf{Why social scientists should care:} if errors differ between the groups you compare, your
+comparison is biased (slide 8).
+\end{graybox}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Who Is in the Data, and Who Labeled It?}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\textbf{FairFace} \muted{(K\"arkk\"ainen \& Joo, 2021)}
+\begin{itemize}
+\item About 108,000 faces, mostly from public Flickr photos
+\item Collected until seven race groups were roughly balanced, also by gender and age
+\item Labels from \keyterm{crowd workers} who looked at each face
+\end{itemize}
+\muted{CC BY 4.0. Built for exactly what we need: checking performance \emph{per group}.}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{warnbox}
+\textbf{What the labels are, and are not}\\
+Gender labels are binary and record what annotators \emph{perceived}. Race labels are annotators'
+guesses at one particular scheme of social categories. Neither says how a person identifies.
+\end{warnbox}
+\muted{In this module we train a gender classifier only to audit it. Don't use such a model to
+label real people.}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Audit Design: Train Skewed, Test Balanced}
+\vspace{0.1cm}
+\centering
+\begin{tikzpicture}[
+  d/.style={draw=midgray, fill=lightgray, rounded corners=3pt, font=\footnotesize, align=center,
+            inner sep=5pt, text width=3.0cm},
+  g/.style={draw=wurgreen, fill=lightgreen, rounded corners=3pt, font=\footnotesize, align=left,
+            inner sep=5pt, text width=4.6cm},
+  n/.style={draw=darknavy, fill=darknavy, text=white, rounded corners=3pt, font=\footnotesize,
+            align=left, inner sep=5pt, text width=4.6cm},
+  arr/.style={-{Stealth[length=2mm]}, thick, color=midgray}]
+\node[d] (all) at (0,0) {FairFace validation faces, with DINOv2 embeddings};
+\node[g] (pool) at (5.3,1.05) {\textbf{pool}: draw a skewed training sample (60\% White, 15\% East
+Asian, \ldots, 2\% Black), half Male and half Female in every group};
+\node[n] (audit) at (5.3,-1.05) {\textbf{audit half}, kept balanced, used only to measure errors};
+\node[d, text width=2.5cm] (res) at (10.6,0) {error rate \textbf{per group}, with 95\% intervals};
+\draw[arr] (all.east) -- (pool.west);
+\draw[arr] (all.east) -- (audit.west);
+\draw[arr] (pool.east) -- node[above right, font=\scriptsize, color=midgray] {train} (res.north west);
+\draw[arr] (audit.east) -- node[below right, font=\scriptsize, color=midgray] {test} (res.south west);
+\end{tikzpicture}
+
+\vspace{0.35cm}
+\raggedright
+The skew is in \emph{who appears}, not in the outcome. Then repeat with a balanced training
+sample of the same size: does the gap close? Often it narrows; it may not vanish, because the
+pre-trained embeddings carry their own training data's skew.
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Report Error Rates per Group, with Intervals}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\begin{itemize}
+\item One overall accuracy hides how errors are distributed
+\item Report the error rate \keyterm{per group}, and per \keyterm{intersection} (race $\times$
+      gender): Gender Shades found the largest errors there
+\item Use the \keyterm{bootstrap}: resample each group's faces many times and see how much its
+      error rate moves
+\end{itemize}
+\end{column}
+\begin{column}{0.47\textwidth}
+\textbf{How precise is an error rate of 10\%?}
+
+\vspace{0.1cm}
+{\footnotesize
+\begin{tabular}{@{}rc@{}}
+\toprule
+faces in the group & 95\% interval \\
+\midrule
+50 & $\pm$ 8.3 points \\
+200 & $\pm$ 4.2 points \\
+800 & $\pm$ 2.1 points \\
+\bottomrule
+\end{tabular}}
+
+\vspace{0.15cm}
+\muted{To tell a gap of a few points from noise, you need hundreds of faces \emph{per subgroup}.}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{What Do Embeddings Encode About People?}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+A \keyterm{probe}: try to predict an attribute from the embeddings with cross-validation. If it
+works, the information is there, and \textbf{any} model trained on the embeddings can use it.
+
+\vspace{0.2cm}
+\textbf{On the Congress portraits}, we probe for attributes from the public metadata (never
+inferred from faces): party, gender, chamber, and whether a member entered Congress in 2017 or
+later.
+\end{column}
+\begin{column}{0.47\textwidth}
+\begin{graybox}
+\textbf{Two kinds of information}\\
+about the \emph{people} (appearance correlated with gender or age), and about the \emph{photos}
+(backdrop, lighting, the year it was taken, the chamber's studio).
+\end{graybox}
+\begin{warnbox}
+\textbf{Shortcut learning:} a model trained to code ``formal versus casual'' photos may quietly
+learn gender or photo era instead. Audit it across those attributes.
+\end{warnbox}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Categories, Skin Tone and Identity}
+\begin{columns}[T]
+\begin{column}{0.31\textwidth}
+\begin{graybox}[height=3.7cm]
+\raggedright\textbf{Annotated categories}\\
+someone's perception of a face, in someone's scheme of categories (FairFace's seven groups)
+\end{graybox}
+\end{column}
+\begin{column}{0.31\textwidth}
+\begin{greenbox}[height=3.7cm]
+\raggedright\textbf{Skin tone scales}\\
+appearance, not identity: Fitzpatrick (6 types) or the 10-point \textbf{Monk Skin Tone} scale
+(Google, 2022), with more detail for darker tones
+\end{greenbox}
+\end{column}
+\begin{column}{0.31\textwidth}
+\begin{navybox}[height=3.7cm]
+\raggedright\textbf{Self-report}\\
+measures identity directly, with consent, but rarely exists for images from the web
+\end{navybox}
+\end{column}
+\end{columns}
+
+\vspace{0.2cm}
+\begin{warnbox}
+\textbf{Inferring gender, race, age or emotion from a face} is a measurement problem as much as an
+ethical one. Alternatives: use metadata or self-reports; code the \emph{context} (role, framing)
+instead of identity; or have trained coders code perceived attributes and report agreement.
+\end{warnbox}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{When Errors Differ by Group, Conclusions Shift}
+\begin{columns}[T]
+\begin{column}{0.46\textwidth}
+\centering
+\begin{tikzpicture}[x=1cm, y=4.5cm]
+\draw[midgray] (0,0) -- (4.6,0);
+\foreach \x/\h/\c/\l in {0.5/0.40/midgray/40, 1.3/0.42/wurgreen/42, 2.7/0.40/midgray/40, 3.5/0.34/wurgreen/34}
+  { \fill[\c] (\x-0.3,0) rectangle (\x+0.3,\h); \node[above, font=\scriptsize] at (\x,\h) {\l\%}; }
+\node[below, font=\footnotesize] at (0.9,0) {group A};
+\node[below, font=\footnotesize] at (3.1,0) {group B};
+\fill[midgray] (0.2,0.62) rectangle (0.45,0.66); \node[right, font=\scriptsize] at (0.5,0.64) {true share smiling};
+\fill[wurgreen] (0.2,0.55) rectangle (0.45,0.59); \node[right, font=\scriptsize] at (0.5,0.57) {measured by the detector};
+\end{tikzpicture}\\
+\muted{\footnotesize expected values in the simulation}
+\end{column}
+\begin{column}{0.51\textwidth}
+A smile detector finds 90\% of smiles in group A but 70\% in group B, with 10\% false alarms in
+both. It is right 86\% of the time, and it \textbf{invents} an 8-point gap.
+
+\vspace{0.15cm}
+\begin{greenbox}
+\textbf{Fix: a validation sample per group.} Hand-code a random sample, estimate each group's
+sensitivity and false positive rate, and correct \muted{(Rogan \& Gladen, 1978)}:\\[3pt]
+{\footnotesize $\text{corrected} = \dfrac{\text{measured} - \text{false positive rate}}{\text{sensitivity} - \text{false positive rate}}$}
+\end{greenbox}
+\muted{\footnotesize Regression methods that carry this uncertainty through:
+TeBlunthuis et al.\ (2024).}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{What to Report}
+When a measurement in your study involves people in images, readers need to know:
+
+\vspace{0.2cm}
+\begin{enumerate}
+\setlength{\itemsep}{4pt}
+\item \textbf{Who is in your data}, and how that compares with the population you make claims
+      about
+\item \textbf{How labels about people were obtained}: metadata, self-report, or someone's
+      perception, and in which categories
+\item \textbf{Error rates per relevant group}, with intervals and the size of each group in your
+      validation sample
+\item \textbf{What you did about differences}: rebalancing, correction, or a stated limitation
+\item \textbf{What you chose not to infer}, and why
+\end{enumerate}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\notebookslide{
+\begin{itemize}
+\setlength{\itemsep}{5pt}
+\nbitem{\faUsers}{FairFace: who is in it, and how it was labeled}
+\nbitem{\faBalanceScale}{A Gender Shades-style audit: skewed versus balanced training data}
+\nbitem{\faChartBar}{Error rates per group and per intersection, with bootstrap intervals}
+\nbitem{\faSearch}{Probing portrait embeddings for people and for photo production}
+\nbitem{\faPalette}{Skin tone, categories and identity}
+\nbitem{\faCalculator}{A simulation of differential error, and a correction with a validation sample}
+\end{itemize}
+
+\vspace{0.35cm}
+\muted{\footnotesize part2\_vectors/07\_bias\_measurement\_and\_faces/notebooks/\\
+07\_bias\_measurement\_and\_faces\_exercises.ipynb · 5 exercises · GPU recommended}
+}
+
+\end{document}

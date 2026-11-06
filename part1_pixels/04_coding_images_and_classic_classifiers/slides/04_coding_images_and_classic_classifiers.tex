@@ -1,0 +1,273 @@
+\newcommand{\coursemodule}{Module 04}
+\input{../../../shared/preamble.tex}
+
+\begin{document}
+
+\moduletitle{Coding Images and Classic Classifiers}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Human Coding Is the Benchmark}
+Every automated measure in this course, from a brightness score to a vision-language model, is
+only as good as its agreement with careful human judgment.
+
+\vspace{0.3cm}
+\centering
+\begin{tikzpicture}[
+  b/.style={draw=wurgreen, fill=lightgreen, rounded corners=3pt, font=\footnotesize, align=center,
+            inner sep=4pt, text width=1.95cm, minimum height=1.1cm},
+  n/.style={draw=darknavy, fill=darknavy, text=white, rounded corners=3pt, font=\footnotesize\bfseries,
+            align=center, inner sep=4pt, text width=1.95cm, minimum height=1.1cm},
+  arr/.style={-{Stealth[length=2mm]}, thick, color=midgray}]
+\node[b] (cb) {codebook};
+\node[b, right=0.5cm of cb] (pilot) {pilot coding};
+\node[b, right=0.5cm of pilot] (rel) {reliability good enough?};
+\node[n, right=0.75cm of rel] (gold) {coded test set};
+\node[b, right=0.5cm of gold] (auto) {score any automated method};
+\draw[arr] (cb) -- (pilot); \draw[arr] (pilot) -- (rel);
+\draw[arr] (rel) -- node[above, font=\scriptsize, color=midgray] {yes} (gold);
+\draw[arr] (gold) -- (auto);
+\draw[arr] (rel.south) -- ++(0,-0.45) -| node[pos=0.25, below, font=\scriptsize, color=midgray]
+      {no: revise the codebook} (cb.south);
+\end{tikzpicture}
+
+\vspace{0.4cm}
+\raggedright
+\begin{greenbox}
+In this module you code 40 images. Those codes become the \textbf{test set} for every method in
+Parts 1 to 3, so all of them are scored on the same images.
+\end{greenbox}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Choosing the Unit of Analysis}
+The same picture can be coded at several levels. Each level answers different questions.
+
+\vspace{0.2cm}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{greenbox}
+\textbf{\faImage\ The whole image}\\
+\emph{Does this photo show a protest?}
+\end{greenbox}
+\begin{greenbox}
+\textbf{\faUser\ Each person}\\
+\emph{How are women shown in news photos?}
+\end{greenbox}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{greenbox}
+\textbf{\faCrop\ A region}\\
+\emph{What is in the foreground? How much of the package is the mascot?}
+\end{greenbox}
+\begin{greenbox}
+\textbf{\faComments\ The post}\\
+\emph{Does the caption change what the image means?}
+\end{greenbox}
+\end{column}
+\end{columns}
+
+\vspace{0.1cm}
+\muted{This module codes whole images. Regions and people return in modules 12 and 14, posts in
+module 11.}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{A Short Visual Codebook}
+\vspace{0.1cm}
+{\footnotesize
+\begin{tabular}{@{}>{\bfseries}l>{\raggedright\arraybackslash}p{6.1cm}>{\raggedright\arraybackslash}p{5.2cm}@{}}
+\toprule
+ & \textbf{``yes'' when \ldots} & \textbf{``no'' when \ldots} \\
+\midrule
+protest & people engaged in protest are visible: marching, gathering with signs, a blockade, a sit-in & only objects (a poster, an empty square), police alone, or a crowd with no sign of protest \\[2pt]
+crowd & roughly ten or more people are visible, including the background & fewer than about ten people \\[2pt]
+police & officers, police vehicles or police barriers are visible & no police (stewards don't count) \\[2pt]
+signs & a sign, banner or flag with a message is carried or displayed by people & no signs, or only street, shop and traffic signs \\
+\bottomrule
+\end{tabular}}
+
+\vspace{0.3cm}
+\begin{navybox}
+\textbf{Code what you can see, not what you know about the event.} If you can't tell, choose the
+answer that needs less inference, and write down the image: it probably calls for a new rule.
+\end{navybox}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Coding in Practice}
+\begin{columns}[T]
+\begin{column}{0.47\textwidth}
+\textbf{Tools}
+
+\vspace{0.1cm}
+\begin{graybox}
+\textbf{In the notebook}: buttons under each image, codes saved after every click. Quick, for
+whole-image codes and one coder.
+\end{graybox}
+\begin{graybox}
+\textbf{Label Studio} (open source): boxes and regions, several coders, a web interface. Worth
+setting up for a real project.
+\end{graybox}
+\begin{graybox}
+\textbf{A spreadsheet} with file names: the fallback that always works.
+\end{graybox}
+\end{column}
+\begin{column}{0.5\textwidth}
+\textbf{Habits}
+\begin{itemize}
+\item \keyterm{Code blind}: don't let coders see where an image came from
+\item \keyterm{Shuffle} the order, and code in short sessions
+\item \keyterm{Write down new rules} as hard cases come up
+\item \keyterm{Recode} a sample later: is your coding \emph{stable}?
+\item Add a \keyterm{second coder}: is it \emph{reproducible}? This is the standard for
+      publication.
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Measuring Agreement}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\begin{itemize}
+\item \keyterm{Percent agreement}: share of images coded the same way; rewards luck
+\item \keyterm{Cohen's kappa}: corrected for chance,
+      $\kappa = (p_o - p_e)\,/\,(1 - p_e)$
+\item \keyterm{Krippendorff's alpha}: any number of coders, missing codes; the standard in
+      content analysis
+\end{itemize}
+\begin{graybox}
+$\alpha \geq .800$: reliable \quad $.667$--$.800$: tentative conclusions only
+\muted{(Krippendorff, 2018)}
+\end{graybox}
+\end{column}
+\begin{column}{0.46\textwidth}
+\vspace{0.3cm}
+\begin{warnbox}
+\textbf{Why percent agreement misleads}\\
+\emph{Police} appears in 5\% of images. One coder looks carefully; the other always says ``no''
+without looking.\\[4pt]
+\begin{tabular}{@{}lr@{}}
+percent agreement & \textbf{0.95} \\
+Cohen's kappa & \textbf{0.00} \\
+\end{tabular}
+\end{warnbox}
+\muted{Report a chance-corrected measure. Rare categories need more images before you can judge
+their reliability at all.}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Free Labels Are Noisy Labels}
+Every image comes with a label you didn't code: the \textbf{category} it was filed under.
+Metadata, hashtags, search terms and accounts work the same way.
+
+\vspace{0.25cm}
+\centering
+\begin{tikzpicture}[
+  cat/.style={draw=darknavy, fill=darknavy, text=white, rounded corners=3pt, font=\footnotesize,
+              align=center, inner sep=5pt, text width=3.4cm},
+  ok/.style={draw=wurgreen, fill=lightgreen, rounded corners=3pt, font=\footnotesize, align=left,
+             inner sep=4pt, text width=4.2cm},
+  bad/.style={draw=warnborder, fill=warnred, rounded corners=3pt, font=\footnotesize, align=left,
+             inner sep=4pt, text width=4.2cm},
+  arr/.style={-{Stealth[length=2mm]}, thick, color=midgray}]
+\node[cat] (c) {Category:\\ \textbf{Demonstrations and protests in the Netherlands in 2019}};
+\node[ok, right=1.4cm of c, yshift=1.1cm] (a) {\faCheck\ a march with banners};
+\node[bad, below=0.12cm of a] (b) {\faTimes\ a poster on a wall};
+\node[bad, below=0.12cm of b] (d) {\faTimes\ a police van on an empty square};
+\node[bad, below=0.12cm of d] (e) {\textbf{?}\ a speaker alone on a stage};
+\foreach \n in {a,b,d,e} \draw[arr] (c.east) -- (\n.west);
+\end{tikzpicture}
+
+\vspace{0.3cm}
+\raggedright
+\begin{greenbox}
+A category says \textbf{where an image was filed}, not \textbf{what it shows}. Train on free
+labels if nothing better exists, but always evaluate against human codes.
+\end{greenbox}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{A Classic Classifier, Honestly Evaluated}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\centering
+\begin{tikzpicture}[
+  tr/.style={draw=wurgreen, fill=lightgreen, rounded corners=3pt, font=\footnotesize, align=center,
+             inner sep=5pt, text width=5.4cm},
+  te/.style={draw=darknavy, fill=darknavy, text=white, rounded corners=3pt, font=\footnotesize,
+             align=center, inner sep=5pt, text width=5.4cm},
+  arr/.style={-{Stealth[length=2mm]}, thick, color=midgray}]
+\node[tr] (train) {\textbf{All other images}\\ category labels \\ 5-fold cross-validation \\ fit the final model};
+\node[te, below=0.5cm of train] (test) {\textbf{Your 40 coded images}\\ never seen in training\\ scored against your codes};
+\draw[arr] (train) -- node[right, font=\scriptsize, color=midgray] {predict} (test);
+\end{tikzpicture}
+\end{column}
+\begin{column}{0.47\textwidth}
+\begin{itemize}
+\item Input: the 11 features from module 03
+\item \keyterm{Logistic regression}: one weight per feature
+\item \keyterm{Random forest}: many trees; thresholds and interactions
+\item Unequal classes: balanced class weights; report \keyterm{balanced accuracy} (0.5 = chance)
+      and \keyterm{F1} per class
+\end{itemize}
+\end{column}
+\end{columns}
+
+\vspace{0.2cm}
+\begin{warnbox}
+A model scored on images it was trained on looks far better than it is. Keep the test set out of
+training and out of every modeling decision.
+\end{warnbox}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{The Semantic Gap}
+\centering
+\begin{tikzpicture}[
+  l/.style={draw=midgray, fill=lightgray, rounded corners=3pt, font=\footnotesize, align=left,
+            inner sep=6pt, text width=4.6cm},
+  r/.style={draw=darknavy, fill=darknavy, text=white, rounded corners=3pt, font=\footnotesize,
+            align=left, inner sep=6pt, text width=4.6cm}]
+\node[l] (look) {\textbf{How it looks}\\[2pt] light, color, edges, symmetry,\\ roughly how many frontal faces};
+\node[r, right=3.2cm of look] (show) {\textbf{What it shows}\\[2pt] people protesting, signs with\\ messages, police, a celebration};
+\draw[very thick, dashed, color=warnborder] (look.east) -- node[above, font=\scriptsize, color=warnborder, text width=2.8cm, align=center]
+     {only through correlations}
+     node[below, font=\scriptsize, color=midgray, text width=2.8cm, align=center] {orange $\approx$ King's Day} (show.west);
+\end{tikzpicture}
+
+\vspace{0.4cm}
+\raggedright
+Handcrafted features can only cross this gap where meaning happens to correlate with the look,
+and those correlations break on new data: an orange-clad protest becomes ``King's Day''.
+
+\vspace{0.2cm}
+\begin{greenbox}
+\textbf{Next, Part 2:} features that represent content. Networks that learn their own features
+(module 05) and features borrowed from networks trained on millions of images (module 06), scored
+on the same 40 images.
+\end{greenbox}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\notebookslide{
+\begin{itemize}
+\setlength{\itemsep}{5pt}
+\nbitem{\faClipboardList}{A four-variable codebook, and the hard cases it needs rules for}
+\nbitem{\faTags}{Coding 40 images with a labeling tool in the notebook}
+\nbitem{\faRedo}{Recoding 20 of them: stability with kappa and alpha}
+\nbitem{\faFolderOpen}{Category labels against your own codes}
+\nbitem{\faLaptopCode}{Logistic regression and a random forest on handcrafted features}
+\nbitem{\faSearch}{Testing against your codes and reading the mistakes}
+\end{itemize}
+
+\vspace{0.35cm}
+\muted{\footnotesize part1\_pixels/04\_coding\_images\_and\_classic\_classifiers/notebooks/\\
+04\_coding\_images\_and\_classic\_classifiers\_exercises.ipynb · 6 exercises · CPU runtime ·
+about 20 minutes of coding}
+}
+
+\end{document}

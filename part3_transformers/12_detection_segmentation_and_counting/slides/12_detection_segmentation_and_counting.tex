@@ -1,0 +1,226 @@
+\newcommand{\coursemodule}{Module 12}
+\input{../../../shared/preamble.tex}
+
+\begin{document}
+
+\moduletitle{Detection, Segmentation and Counting}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{What Is in the Image, and Where?}
+\begin{columns}[T]
+\begin{column}{0.31\textwidth}
+\begin{graybox}[height=3.2cm]
+\raggedright\textbf{Detection}\\
+boxes around objects, each with a category and a confidence score
+\end{graybox}
+\end{column}
+\begin{column}{0.31\textwidth}
+\begin{greenbox}[height=3.2cm]
+\raggedright\textbf{Segmentation}\\
+the exact outline of an object, pixel by pixel
+\end{greenbox}
+\end{column}
+\begin{column}{0.31\textwidth}
+\begin{navybox}[height=3.2cm]
+\raggedright\textbf{Counting}\\
+how many of something are visible
+\end{navybox}
+\end{column}
+\end{columns}
+
+\vspace{0.25cm}
+They let you code \emph{parts} of an image: how many people are at a rally, whether police appear,
+how much of a cereal box a mascot takes up.
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Standard Detectors Know 80 Things}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\textbf{RT-DETR}, a transformer-based detector, is trained on \textbf{COCO}: 80 everyday
+categories such as \emph{person}, \emph{car}, \emph{umbrella}, \emph{backpack}.
+
+\vspace{0.15cm}
+No \emph{police officer}, no \emph{banner}, no \emph{flag}. Like ImageNet's categories (module 06),
+they were chosen for a benchmark, not for your question.
+\end{column}
+\begin{column}{0.46\textwidth}
+\begin{graybox}
+\textbf{The confidence threshold}\\
+Every box has a score. A low threshold finds more objects and more false ones; a high threshold
+misses partly hidden ones. Keep all boxes above a low score once, then try thresholds without
+rerunning the model.
+\end{graybox}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Counting People Is Hard}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\begin{itemize}
+\item People hide behind each other
+\item Distant heads are a few pixels tall
+\item Detectors return a limited number of boxes
+\item The frame shows one moment and one part of the event
+\end{itemize}
+
+\vspace{0.15cm}
+\textbf{Validation}: your codebook says \emph{crowd} = ten or more visible people, so ``10+
+detected'' is a rule fixed in advance that can be scored on the test set.
+\end{column}
+\begin{column}{0.46\textwidth}
+\begin{warnbox}
+\textbf{A count is a lower bound} on the people visible and detectable in one photo, not the size
+of a demonstration.
+\end{warnbox}
+\muted{\footnotesize Crowd size estimation uses area times density, often from several or aerial
+images, and reports a range.}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Open-Vocabulary Detection}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\textbf{OWLv2} scores every candidate box against \textbf{text queries} with a CLIP-style text
+encoder (module 09):
+
+\vspace{0.1cm}
+{\footnotesize\texttt{"a police officer", "a protest sign", "a banner", "a flag"}}
+
+\vspace{0.15cm}
+Image-level codes: the highest score per query, above a threshold, validated against your
+\emph{police} and \emph{signs} codes.
+\end{column}
+\begin{column}{0.46\textwidth}
+\begin{warnbox}
+\textbf{Threshold and wording both matter.} ``police'', ``a police officer in uniform'' and ``a
+person wearing a police uniform'' give different results.
+\end{warnbox}
+\begin{greenbox}
+Choose them on a separate hand-coded validation sample, then score the test set once.
+\end{greenbox}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Segmentation with SAM 2}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\textbf{SAM 2} \muted{(Meta, Apache 2.0)} outlines an object when you point at it with a click or a
+box. It doesn't know \emph{what} it outlines, so we combine it:
+
+\vspace{0.1cm}
+\begin{enumerate}
+\item OWLv2 finds ``a cartoon character''
+\item SAM 2 traces it inside the box
+\item measure: the share of the package front covered
+\end{enumerate}
+\end{column}
+\begin{column}{0.46\textwidth}
+\centering
+\begin{tikzpicture}
+\fill[lightgray] (0, 0) rectangle (3.6, 3.0);
+\fill[wurgreen!70] (1.8, 1.5) +(90:1.1) -- +(162:0.45) -- +(162:1.1) -- +(234:0.45) -- +(234:1.1)
+  -- +(306:0.45) -- +(306:1.1) -- +(18:0.45) -- +(18:1.1) -- +(90:0.45) -- cycle;
+\draw[yellow!80!black, very thick] (0.75, 0.6) rectangle (2.85, 2.6);
+\node[font=\scriptsize, align=center] at (1.8, -0.35) {here the box is almost three times the area of the mask};
+\end{tikzpicture}
+\end{column}
+\end{columns}
+
+\vspace{0.15cm}
+\muted{\footnotesize Kirillov et al.\ (2023) introduced Segment Anything; SAM 2 extends it to video
+(Ravi et al., 2024).}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Measures Built from Regions}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\begin{itemize}
+\item \keyterm{count}: people, flags, police vehicles
+\item \keyterm{size}: share of the image a mascot or a speaker takes up
+\item \keyterm{position}: foreground or background, center or edge
+\item \keyterm{overlap}: is the sign held by a person?
+\end{itemize}
+\end{column}
+\begin{column}{0.46\textwidth}
+\begin{graybox}
+\textbf{Before you claim} that mascots are used to sell less healthy cereals, validate the detector
+against hand codes, check that a few brands with many variants don't drive the pattern, and think
+about confounders such as the target age group.
+\end{graybox}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Two-Level Classification}
+\vspace{0.1cm}
+\centering
+\begin{tikzpicture}[
+  b/.style={draw=midgray, fill=lightgray, rounded corners=3pt, font=\footnotesize, align=center, inner sep=5pt},
+  g/.style={draw=wurgreen, fill=lightgreen, rounded corners=3pt, font=\footnotesize, align=center, inner sep=5pt},
+  n/.style={draw=darknavy, fill=darknavy, text=white, rounded corners=3pt, font=\footnotesize, align=center, inner sep=5pt},
+  arr/.style={-{Stealth[length=2mm]}, thick, color=midgray}]
+\node[b, text width=1.6cm] (img) at (0, 0) {image};
+\node[g, text width=3.2cm] (parts) at (3.6, 0) {\textbf{level 1}: detected parts\\ people, cars, signs, police, flags};
+\node[g, text width=2.8cm] (model) at (7.9, 0) {\textbf{level 2}: a logistic regression on the parts};
+\node[n, text width=1.6cm] (out) at (11.4, 0) {protest or not};
+\draw[arr] (img) -- (parts);
+\draw[arr] (parts) -- (model);
+\draw[arr] (model) -- (out);
+\end{tikzpicture}
+
+\vspace{0.4cm}
+\raggedright
+\textbf{Readable}: the coefficients say which objects push an image toward ``protest'', and expose
+shortcuts (a large weight on \emph{umbrella} says something about the weather in your training
+data). \textbf{The price}: whatever the parts don't capture (setting, mood) is lost. Adding CLIP
+embeddings usually scores higher and reads worse.
+
+\vspace{0.15cm}
+\muted{\footnotesize Scholz, Weidmann, Steinert-Threlkeld, Keremoglu \& Goldlücke (2025),
+\emph{Political Analysis}.}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{frame}{Licenses: Check the Code and the Weights}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+Many detection tutorials use YOLO models from the Ultralytics library. Its recent versions are
+licensed under \textbf{AGPL-3.0}: software built with it must be released under the same license,
+also when offered as a web service, unless you buy a commercial license.
+\end{column}
+\begin{column}{0.46\textwidth}
+\begin{greenbox}
+\textbf{In this module}: RT-DETR, OWLv2 and SAM 2 are Apache 2.0, which asks only for attribution
+and a copy of the license.
+\end{greenbox}
+\muted{\footnotesize Fine for a published research script either way, but it matters for tools
+you build for partners. Code and weights can have different licenses.}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\notebookslide{
+\begin{itemize}
+\setlength{\itemsep}{5pt}
+\nbitem{\faUsers}{Detecting and counting people with RT-DETR, checked against your crowd codes}
+\nbitem{\faSearch}{Finding police and signs with OWLv2, and how thresholds and wording matter}
+\nbitem{\faDrawPolygon}{Outlining cereal mascots with SAM 2 and measuring how much of the box they cover}
+\nbitem{\faProjectDiagram}{A two-level classifier from detected objects, and what it costs in accuracy}
+\end{itemize}
+
+\vspace{0.35cm}
+\muted{\footnotesize part3\_transformers/12\_detection\_segmentation\_and\_counting/notebooks/\\
+12\_detection\_segmentation\_and\_counting\_exercises.ipynb · 5 exercises · GPU needed}
+}
+
+\end{document}
