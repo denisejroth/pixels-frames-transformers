@@ -46,9 +46,20 @@ LEGISLATORS_URL = "https://raw.githubusercontent.com/unitedstates/congress-legis
 
 
 # ── basics ────────────────────────────────────────────────────────────────────────────────
-def download(url, params=None):
-    """GET a URL (with optional query parameters); raise an error if it fails."""
-    response = requests.get(url, params=params, headers=HEADERS, timeout=60)
+RETRY_STATUS = {429, 500, 502, 503, 504}     # busy or briefly unavailable: worth another try
+
+
+def download(url, params=None, retries=4, wait=15):
+    """GET a URL (with optional query parameters) and return the response. If the server is busy
+    or briefly down, wait and try again (15, 30, 60, 120 seconds); raise an error if it still fails."""
+    for attempt in range(retries + 1):
+        response = requests.get(url, params=params, headers=HEADERS, timeout=60)
+        if response.status_code not in RETRY_STATUS or attempt == retries:
+            break
+        retry_after = response.headers.get("Retry-After", "")
+        delay = int(retry_after) if retry_after.isdigit() else wait * 2 ** attempt
+        print(f"{urlparse(url).netloc} answered {response.status_code}; trying again in {delay} seconds")
+        time.sleep(delay)
     response.raise_for_status()
     return response
 
@@ -69,7 +80,7 @@ def download_images(table, folder, source, pause=0.5, verbose=True):
         status = "ok"
         if not path.exists():
             try:
-                path.write_bytes(download(row["source_url"]).content)
+                path.write_bytes(download(row["source_url"], retries=1, wait=5).content)  # one short retry per file
                 time.sleep(pause)
             except requests.RequestException as error:
                 status = f"failed: {error.__class__.__name__}"
@@ -88,7 +99,12 @@ def download_images(table, folder, source, pause=0.5, verbose=True):
         rows.append(row)
         if verbose and (i + 1) % 50 == 0:
             print(f"  {i + 1} of {len(table)} files")
-    return pd.DataFrame(rows)
+    manifest = pd.DataFrame(rows)
+    if manifest.empty:      # nothing found: keep the columns, so later steps report zero files
+        print(f"No files to download into {folder}.")
+        manifest = pd.DataFrame(columns=[*table.columns, "local_path", "sha256", "width", "height", "source",
+                                         "status", "downloaded_at"])
+    return manifest
 
 
 def _frozen_manifest(name):
@@ -329,7 +345,9 @@ def image_features(path):
 # later module, so keep_my_files() copies them (and your scoreboard) to Google Drive, and later
 # modules find them there.
 SEED = 42
-MY_FILES = ("my_codes.csv", "my_recodes.csv", "my_results.csv")
+MY_FILES = ("my_codes.csv", "my_recodes.csv", "my_results.csv",
+            # Part 4: the tables each video module adds, so module 16 can join them
+            "video_shots.csv", "video_faces.csv", "video_turns.csv", "my_video_codes.csv")
 DRIVE_DIR = Path("/content/drive/MyDrive/pixels-frames-transformers")
 
 
